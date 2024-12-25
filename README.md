@@ -1,4 +1,4 @@
-# Work Organizer Platform 2024/25
+# Note-Taking-Application 2024/25
 
 ## Group Members
 
