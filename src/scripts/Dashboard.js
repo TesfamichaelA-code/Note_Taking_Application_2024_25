@@ -5,117 +5,104 @@ var AdminDashboard = /** @class */ (function () {
             { id: 2, name: 'Mr. Vittapu', teacherId: '5678', email: 'vittapu@gmail.com', course: 'Fundamental of Electrical Circuit' }
         ];
         this.studentsCount = 200;
-        // Initialize properties in the constructor
+        this.nextTeacherId = 3;
+        // Initialize properties
         this.teachersList = document.querySelector('#teachers tbody');
-        this.searchInput = document.querySelector('input[placeholder="Search"]');
-        this.addTeacherButton = document.querySelector('.btn-dark');
         this.teachersTab = document.getElementById('teachers-tab');
         this.studentsTab = document.getElementById('students-tab');
         this.totalTeachersElement = document.querySelector('.card-body h3');
         this.totalStudentsElement = document.querySelectorAll('.card-body h3')[1];
-        this.teacherForm = document.getElementById('teacher-form');
-        this.teacherNameInput = document.getElementById('teacher-name');
-        this.teacherIdInput = document.getElementById('teacher-id');
-        this.teacherEmailInput = document.getElementById('teacher-email');
-        this.teacherCourseInput = document.getElementById('teacher-course');
-        this.saveTeacherButton = document.getElementById('save-teacher');
-        // Initialize other components
+        this.addTeacherButton = document.getElementById('add-teacher-btn');
+        // Initialize components
         this.addEventListeners();
         this.renderTeachers();
         this.updateStats();
     }
     AdminDashboard.prototype.addEventListeners = function () {
         var _this = this;
-        this.searchInput.addEventListener('input', function () { return _this.searchTeachers(); });
-        this.addTeacherButton.addEventListener('click', function () { return _this.showTeacherForm(); });
-        this.saveTeacherButton.addEventListener('click', function () { return _this.addNewTeacher(); });
+        var _a;
         this.teachersTab.addEventListener('click', function () { return _this.switchTab('teachers'); });
         this.studentsTab.addEventListener('click', function () { return _this.switchTab('students'); });
+        (_a = this.addTeacherButton) === null || _a === void 0 ? void 0 : _a.addEventListener('click', function () { return _this.addNewTeacher(); });
     };
     AdminDashboard.prototype.renderTeachers = function () {
         var _this = this;
         this.teachersList.innerHTML = '';
         this.teachersData.forEach(function (teacher, index) {
-            var row = document.createElement('tr');
-            row.innerHTML = "\n                <td>".concat(index + 1, "</td>\n                <td class=\"teacher-name\">").concat(teacher.name, "</td>\n                <td class=\"teacher-id\">").concat(teacher.teacherId, "</td>\n                <td class=\"teacher-email\">").concat(teacher.email, "</td>\n                <td class=\"teacher-course\">").concat(teacher.course, "</td>\n                <td>\n                    <a href=\"#\" class=\"text-primary delete-teacher\" data-id=\"").concat(teacher.id, "\">Delete</a>\n                </td>\n            ");
-            if (index === _this.teachersData.length - 1) {
-                row.classList.add('spacing-bottom');
-            }
+            var row = _this.createTeacherRow(teacher, index);
             _this.teachersList.appendChild(row);
         });
-        document.querySelectorAll('.delete-teacher').forEach(function (button) {
-            button.addEventListener('click', function (e) { return _this.deleteTeacher(e); });
-        });
+        this.updateDeleteLinks();
     };
-    AdminDashboard.prototype.searchTeachers = function () {
-        var searchTerm = this.searchInput.value.toLowerCase();
-        var filteredTeachers = this.teachersData.filter(function (teacher) {
-            return teacher.name.toLowerCase().includes(searchTerm) ||
-                teacher.email.toLowerCase().includes(searchTerm) ||
-                teacher.course.toLowerCase().includes(searchTerm);
-        });
-        this.renderFilteredTeachers(filteredTeachers);
-    };
-    AdminDashboard.prototype.renderFilteredTeachers = function (teachers) {
+    AdminDashboard.prototype.createTeacherRow = function (teacher, index) {
         var _this = this;
-        this.teachersList.innerHTML = '';
-        teachers.forEach(function (teacher, index) {
-            var row = document.createElement('tr');
-            row.innerHTML = "\n                <td>".concat(index + 1, "</td>\n                <td>").concat(teacher.name, "</td>\n                <td>").concat(teacher.teacherId, "</td>\n                <td>").concat(teacher.email, "</td>\n                <td>").concat(teacher.course, "</td>\n                <td><a href=\"#\" class=\"text-primary delete-teacher\" data-id=\"").concat(teacher.id, "\">Delete</a></td>\n            ");
-            if (index === teachers.length - 1) {
-                row.classList.add('spacing-bottom');
-            }
-            _this.teachersList.appendChild(row);
+        var row = document.createElement('tr');
+        row.setAttribute('data-teacher-id', teacher.id.toString());
+        row.innerHTML = "\n            <td>".concat(index + 1, "</td>\n            <td contenteditable=\"true\">").concat(teacher.name, "</td>\n            <td contenteditable=\"true\">").concat(teacher.teacherId, "</td>\n            <td contenteditable=\"true\">").concat(teacher.email, "</td>\n            <td contenteditable=\"true\">").concat(teacher.course, "</td>\n            <td>\n                <a href=\"#\" class=\"delete-teacher\">Delete</a>\n            </td>\n        ");
+        // Add event listeners for editable cells
+        var editableCells = row.querySelectorAll('[contenteditable="true"]');
+        editableCells.forEach(function (cell) {
+            cell.addEventListener('blur', function () { return _this.updateTeacherData(row); });
         });
-        document.querySelectorAll('.delete-teacher').forEach(function (button) {
-            button.addEventListener('click', function (e) { return _this.deleteTeacher(e); });
+        // Add delete button event listener
+        var deleteButton = row.querySelector('.delete-teacher');
+        deleteButton === null || deleteButton === void 0 ? void 0 : deleteButton.addEventListener('click', function (e) {
+            e.preventDefault();
+            _this.deleteTeacher(teacher.id);
         });
+        return row;
     };
-    AdminDashboard.prototype.showTeacherForm = function () {
-        // Display the form and focus on the teacher's name input
-        this.teacherForm.style.display = 'block';
-        this.teacherNameInput.focus();
+    AdminDashboard.prototype.updateTeacherData = function (row) {
+        var teacherId = parseInt(row.getAttribute('data-teacher-id') || '0');
+        var cells = row.cells;
+        var teacherIndex = this.teachersData.findIndex(function (t) { return t.id === teacherId; });
+        if (teacherIndex !== -1) {
+            this.teachersData[teacherIndex] = {
+                id: teacherId,
+                name: cells[1].textContent || '',
+                teacherId: cells[2].textContent || '',
+                email: cells[3].textContent || '',
+                course: cells[4].textContent || ''
+            };
+        }
     };
     AdminDashboard.prototype.addNewTeacher = function () {
-        var name = this.teacherNameInput.value.trim();
-        var teacherId = this.teacherIdInput.value.trim();
-        var email = this.teacherEmailInput.value.trim();
-        var course = this.teacherCourseInput.value.trim();
-        if (name && teacherId && email && course) {
-            var newTeacher = {
-                id: this.teachersData.length + 1,
-                name: name,
-                teacherId: teacherId,
-                email: email,
-                course: course
-            };
-            this.teachersData.push(newTeacher);
+        var newTeacher = {
+            id: this.nextTeacherId++,
+            name: 'New Teacher',
+            teacherId: 'Enter ID',
+            email: 'Enter Email',
+            course: 'Enter Course'
+        };
+        this.teachersData.push(newTeacher);
+        var row = this.createTeacherRow(newTeacher, this.teachersData.length - 1);
+        this.teachersList.appendChild(row);
+        this.updateStats();
+        this.updateDeleteLinks();
+    };
+    AdminDashboard.prototype.deleteTeacher = function (teacherId) {
+        var index = this.teachersData.findIndex(function (t) { return t.id === teacherId; });
+        if (index !== -1) {
+            this.teachersData.splice(index, 1);
             this.renderTeachers();
             this.updateStats();
-            this.teacherForm.style.display = 'none'; // Hide the form after adding the teacher
-            this.resetFormFields();
-        }
-        else {
-            alert('All fields are required!');
+            this.updateDeleteLinks();
         }
     };
-    AdminDashboard.prototype.deleteTeacher = function (e) {
-        e.preventDefault();
-        var target = e.target;
-        var teacherId = parseInt(target.getAttribute('data-id') || '0', 10);
-        this.teachersData = this.teachersData.filter(function (teacher) { return teacher.id !== teacherId; });
-        // Remove the corresponding row from the table
-        var row = target.closest('tr');
-        if (row) {
-            row.remove();
-        }
-        this.updateStats();
-    };
-    AdminDashboard.prototype.resetFormFields = function () {
-        this.teacherNameInput.value = '';
-        this.teacherIdInput.value = '';
-        this.teacherEmailInput.value = '';
-        this.teacherCourseInput.value = '';
+    AdminDashboard.prototype.updateDeleteLinks = function () {
+        var _this = this;
+        var deleteLinks = this.teachersList.querySelectorAll('.delete-teacher');
+        deleteLinks.forEach(function (link) {
+            var row = link.closest('tr');
+            if (_this.teachersData.length === 1) {
+                link.classList.add('disabled');
+                link.setAttribute('style', 'pointer-events: none; color: gray;');
+            }
+            else {
+                link.classList.remove('disabled');
+                link.setAttribute('style', 'pointer-events: auto; color: initial;');
+            }
+        });
     };
     AdminDashboard.prototype.switchTab = function (tab) {
         var _a, _b, _c, _d;

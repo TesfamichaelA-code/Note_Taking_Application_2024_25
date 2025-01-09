@@ -4,159 +4,129 @@ class AdminDashboard {
         { id: 2, name: 'Mr. Vittapu', teacherId: '5678', email: 'vittapu@gmail.com', course: 'Fundamental of Electrical Circuit' }
     ];
     private studentsCount: number = 200;
+    private nextTeacherId: number = 3;
 
     private teachersList: HTMLTableSectionElement;
-    private searchInput: HTMLInputElement;
-    private addTeacherButton: HTMLButtonElement;
     private teachersTab: HTMLButtonElement;
     private studentsTab: HTMLButtonElement;
     private totalTeachersElement: HTMLElement;
     private totalStudentsElement: HTMLElement;
-    private teacherForm: HTMLElement;
-    private teacherNameInput: HTMLInputElement;
-    private teacherIdInput: HTMLInputElement;
-    private teacherEmailInput: HTMLInputElement;
-    private teacherCourseInput: HTMLInputElement;
-    private saveTeacherButton: HTMLButtonElement;
+    private addTeacherButton: HTMLButtonElement;
 
     constructor() {
-        // Initialize properties in the constructor
+        // Initialize properties
         this.teachersList = document.querySelector('#teachers tbody') as HTMLTableSectionElement;
-        this.searchInput = document.querySelector('input[placeholder="Search"]') as HTMLInputElement;
-        this.addTeacherButton = document.querySelector('.btn-dark') as HTMLButtonElement;
         this.teachersTab = document.getElementById('teachers-tab') as HTMLButtonElement;
         this.studentsTab = document.getElementById('students-tab') as HTMLButtonElement;
         this.totalTeachersElement = document.querySelector('.card-body h3') as HTMLElement;
         this.totalStudentsElement = document.querySelectorAll('.card-body h3')[1] as HTMLElement;
-        this.teacherForm = document.getElementById('teacher-form') as HTMLElement;
-        this.teacherNameInput = document.getElementById('teacher-name') as HTMLInputElement;
-        this.teacherIdInput = document.getElementById('teacher-id') as HTMLInputElement;
-        this.teacherEmailInput = document.getElementById('teacher-email') as HTMLInputElement;
-        this.teacherCourseInput = document.getElementById('teacher-course') as HTMLInputElement;
-        this.saveTeacherButton = document.getElementById('save-teacher') as HTMLButtonElement;
+        this.addTeacherButton = document.getElementById('add-teacher-btn') as HTMLButtonElement;
 
-        // Initialize other components
+        // Initialize components
         this.addEventListeners();
         this.renderTeachers();
         this.updateStats();
     }
 
     private addEventListeners(): void {
-        this.searchInput.addEventListener('input', () => this.searchTeachers());
-        this.addTeacherButton.addEventListener('click', () => this.showTeacherForm());
-        this.saveTeacherButton.addEventListener('click', () => this.addNewTeacher());
         this.teachersTab.addEventListener('click', () => this.switchTab('teachers'));
         this.studentsTab.addEventListener('click', () => this.switchTab('students'));
+        this.addTeacherButton?.addEventListener('click', () => this.addNewTeacher());
     }
 
     private renderTeachers(): void {
         this.teachersList.innerHTML = '';
         this.teachersData.forEach((teacher, index) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${index + 1}</td>
-                <td class="teacher-name">${teacher.name}</td>
-                <td class="teacher-id">${teacher.teacherId}</td>
-                <td class="teacher-email">${teacher.email}</td>
-                <td class="teacher-course">${teacher.course}</td>
-                <td>
-                    <a href="#" class="text-primary delete-teacher" data-id="${teacher.id}">Delete</a>
-                </td>
-            `;
-            if (index === this.teachersData.length - 1) {
-                row.classList.add('spacing-bottom');
-            }
+            const row = this.createTeacherRow(teacher, index);
             this.teachersList.appendChild(row);
         });
-
-        document.querySelectorAll('.delete-teacher').forEach(button => {
-            button.addEventListener('click', (e) => this.deleteTeacher(e));
-        });
+        this.updateDeleteLinks();
     }
 
-    private searchTeachers(): void {
-        const searchTerm = this.searchInput.value.toLowerCase();
-        const filteredTeachers = this.teachersData.filter(teacher => 
-            teacher.name.toLowerCase().includes(searchTerm) ||
-            teacher.email.toLowerCase().includes(searchTerm) ||
-            teacher.course.toLowerCase().includes(searchTerm)
-        );
-        this.renderFilteredTeachers(filteredTeachers);
-    }
+    private createTeacherRow(teacher: Teacher, index: number): HTMLTableRowElement {
+        const row = document.createElement('tr');
+        row.setAttribute('data-teacher-id', teacher.id.toString());
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td contenteditable="true">${teacher.name}</td>
+            <td contenteditable="true">${teacher.teacherId}</td>
+            <td contenteditable="true">${teacher.email}</td>
+            <td contenteditable="true">${teacher.course}</td>
+            <td>
+                <a href="#" class="delete-teacher">Delete</a>
+            </td>
+        `;
 
-    private renderFilteredTeachers(teachers: Teacher[]): void {
-        this.teachersList.innerHTML = '';
-        teachers.forEach((teacher, index) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${index + 1}</td>
-                <td>${teacher.name}</td>
-                <td>${teacher.teacherId}</td>
-                <td>${teacher.email}</td>
-                <td>${teacher.course}</td>
-                <td><a href="#" class="text-primary delete-teacher" data-id="${teacher.id}">Delete</a></td>
-            `;
-            if (index === teachers.length - 1) {
-                row.classList.add('spacing-bottom');
-            }
-            this.teachersList.appendChild(row);
+        // Add event listeners for editable cells
+        const editableCells = row.querySelectorAll('[contenteditable="true"]');
+        editableCells.forEach(cell => {
+            cell.addEventListener('blur', () => this.updateTeacherData(row));
         });
 
-        document.querySelectorAll('.delete-teacher').forEach(button => {
-            button.addEventListener('click', (e) => this.deleteTeacher(e));
+        // Add delete button event listener
+        const deleteButton = row.querySelector('.delete-teacher');
+        deleteButton?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.deleteTeacher(teacher.id);
         });
+
+        return row;
     }
 
-    private showTeacherForm(): void {
-        // Display the form and focus on the teacher's name input
-        this.teacherForm.style.display = 'block';
-        this.teacherNameInput.focus();
+    private updateTeacherData(row: HTMLTableRowElement): void {
+        const teacherId = parseInt(row.getAttribute('data-teacher-id') || '0');
+        const cells = row.cells;
+        const teacherIndex = this.teachersData.findIndex(t => t.id === teacherId);
+
+        if (teacherIndex !== -1) {
+            this.teachersData[teacherIndex] = {
+                id: teacherId,
+                name: cells[1].textContent || '',
+                teacherId: cells[2].textContent || '',
+                email: cells[3].textContent || '',
+                course: cells[4].textContent || ''
+            };
+        }
     }
 
     private addNewTeacher(): void {
-        const name = this.teacherNameInput.value.trim();
-        const teacherId = this.teacherIdInput.value.trim();
-        const email = this.teacherEmailInput.value.trim();
-        const course = this.teacherCourseInput.value.trim();
+        const newTeacher: Teacher = {
+            id: this.nextTeacherId++,
+            name: 'New Teacher',
+            teacherId: 'Enter ID',
+            email: 'Enter Email',
+            course: 'Enter Course'
+        };
 
-        if (name && teacherId && email && course) {
-            const newTeacher: Teacher = {
-                id: this.teachersData.length + 1,
-                name,
-                teacherId,
-                email,
-                course
-            };
-            this.teachersData.push(newTeacher);
+        this.teachersData.push(newTeacher);
+        const row = this.createTeacherRow(newTeacher, this.teachersData.length - 1);
+        this.teachersList.appendChild(row);
+        this.updateStats();
+        this.updateDeleteLinks();
+    }
+
+    private deleteTeacher(teacherId: number): void {
+        const index = this.teachersData.findIndex(t => t.id === teacherId);
+        if (index !== -1) {
+            this.teachersData.splice(index, 1);
             this.renderTeachers();
             this.updateStats();
-            this.teacherForm.style.display = 'none'; // Hide the form after adding the teacher
-            this.resetFormFields();
-        } else {
-            alert('All fields are required!');
+            this.updateDeleteLinks();
         }
     }
 
-    private deleteTeacher(e: Event): void {
-        e.preventDefault();
-        const target = e.target as HTMLAnchorElement;
-        const teacherId = parseInt(target.getAttribute('data-id') || '0', 10);
-        this.teachersData = this.teachersData.filter(teacher => teacher.id !== teacherId);
-
-        // Remove the corresponding row from the table
-        const row = target.closest('tr');
-        if (row) {
-            row.remove();
-        }
-
-        this.updateStats();
-    }
-
-    private resetFormFields(): void {
-        this.teacherNameInput.value = '';
-        this.teacherIdInput.value = '';
-        this.teacherEmailInput.value = '';
-        this.teacherCourseInput.value = '';
+    private updateDeleteLinks(): void {
+        const deleteLinks = this.teachersList.querySelectorAll('.delete-teacher');
+        deleteLinks.forEach(link => {
+            const row = link.closest('tr') as HTMLTableRowElement;
+            if (this.teachersData.length === 1) {
+                link.classList.add('disabled');
+                link.setAttribute('style', 'pointer-events: none; color: gray;');
+            } else {
+                link.classList.remove('disabled');
+                link.setAttribute('style', 'pointer-events: auto; color: initial;');
+            }
+        });
     }
 
     private switchTab(tab: 'teachers' | 'students'): void {

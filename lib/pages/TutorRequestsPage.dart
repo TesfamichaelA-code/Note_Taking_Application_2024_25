@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:supply_on_campus/widgets/nav_bar.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class TutorRequestsPage extends StatefulWidget {
   const TutorRequestsPage({Key? key}) : super(key: key);
@@ -11,12 +12,17 @@ class TutorRequestsPage extends StatefulWidget {
 
 class _TutorRequestsPageState extends State<TutorRequestsPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final _auth = FirebaseAuth.instance;
 
   Future<void> _handleAction(String requestId, String action) async {
     try {
+      final User? currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+
       await _firestore.collection('tutoring_requests').doc(requestId).update({
         'status': action,
         'updatedAt': FieldValue.serverTimestamp(),
+        'handledBy': currentUser.uid,
       });
 
       if (!mounted) return;
@@ -41,6 +47,8 @@ class _TutorRequestsPageState extends State<TutorRequestsPage> {
 
   Widget _buildRequestCard(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    final DateTime? createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+    
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       child: Padding(
@@ -52,13 +60,7 @@ class _TutorRequestsPageState extends State<TutorRequestsPage> {
               children: [
                 CircleAvatar(
                   backgroundColor: Colors.blue[100],
-                  child: Text(
-                    data['studentName']?[0] ?? 'S',
-                    style: const TextStyle(
-                      color: Colors.blue,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  child: Icon(Icons.person, color: Colors.blue),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -66,17 +68,28 @@ class _TutorRequestsPageState extends State<TutorRequestsPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        data['studentName'] ?? 'Unknown Student',
-                        style: const TextStyle(
+                        data['studentEmail'] ?? 'No email',
+                        style: TextStyle(
                           fontSize: 16,
+                          color: Colors.grey[800],
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      if (createdAt != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Requested on: ${_formatDate(createdAt)}',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 4),
                       Text(
-                        data['studentEmail'] ?? 'No email',
+                        'Subject: ${data['tutorName']} - ${data['message']}',
                         style: TextStyle(
-                          color: Colors.grey[600],
+                          color: Colors.grey[700],
                           fontSize: 14,
                         ),
                       ),
@@ -85,34 +98,36 @@ class _TutorRequestsPageState extends State<TutorRequestsPage> {
                 ),
               ],
             ),
-            if (data['message'] != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                data['message'],
-                style: TextStyle(
-                  color: Colors.grey[800],
-                ),
-              ),
-            ],
             const SizedBox(height: 16),
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                TextButton(
-                  onPressed: () => _handleAction(doc.id, 'REJECTED'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red,
+                Text(
+                  'Status: ${data['status']}',
+                  style: TextStyle(
+                    color: _getStatusColor(data['status']),
+                    fontWeight: FontWeight.bold,
                   ),
-                  child: const Text('Deny'),
                 ),
-                const SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: () => _handleAction(doc.id, 'ACCEPTED'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF263AFF),
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Accept'),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => _handleAction(doc.id, 'REJECTED'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
+                      ),
+                      child: const Text('Deny'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () => _handleAction(doc.id, 'ACCEPTED'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF263AFF),
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Accept'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -122,19 +137,48 @@ class _TutorRequestsPageState extends State<TutorRequestsPage> {
     );
   }
 
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'PENDING':
+        return Colors.orange;
+      case 'ACCEPTED':
+        return Colors.green;
+      case 'REJECTED':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Column(
         children: [
           const NavBar(),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Text(
+                  'Student Booking Requests',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: StreamBuilder<QuerySnapshot>(
                 stream: _firestore
                     .collection('tutoring_requests')
-                    .where('status', isEqualTo: 'PENDING')
                     .orderBy('createdAt', descending: true)
                     .snapshots(),
                 builder: (context, snapshot) {
@@ -152,7 +196,7 @@ class _TutorRequestsPageState extends State<TutorRequestsPage> {
 
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                     return const Center(
-                      child: Text('No pending requests'),
+                      child: Text('No booking requests'),
                     );
                   }
 

@@ -13,7 +13,7 @@
     <div class="row align-items-center mb-4">
       <div class="col d-flex justify-content-start align-items-center">
         <a class="navbar-brand d-flex flex-column align-items-center" href="index.html" style="text-align: center; margin: 0;">
-          <img class="mb-0" src="src/images/image 2.png" alt="EduWave Logo">
+          <img class="mb-0" src="src/images/image2.png" alt="EduWave Logo">
           <span class="fs-6 my-0">EduWave</span>
         </a>
       </div>
@@ -54,10 +54,10 @@
         <!-- Tabs for Teachers and Students -->
         <ul class="nav nav-tabs mb-3">
           <li class="nav-item">
-            <a class="nav-link active" href="#teachers">Teachers</a>
+            <a class="nav-link active" href="#teachers" data-bs-toggle="tab">Teachers</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="#students">Students</a>
+            <a class="nav-link" href="#students" data-bs-toggle="tab">Students</a>
           </li>
         </ul>
 
@@ -76,8 +76,8 @@
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Name</th>
                   <th>ID</th>
+                  <th>Name</th>
                   <th>Email</th>
                   <th>Course</th>
                   <th>Actions</th>
@@ -86,16 +86,16 @@
               <tbody>
                 <tr>
                   <td>1</td>
-                  <td>Mr. Betsegaw</td>
                   <td>1234</td>
+                  <td>Mr. Betsegaw</td>
                   <td>betsegaw@gmail.com</td>
                   <td>Website Development</td>
                   <td><a href="#" class="text-primary">Delete</a></td>
                 </tr>
                 <tr>
                   <td>2</td>
-                  <td>Mr. Vittapu</td>
                   <td>5678</td>
+                  <td>Mr. Vittapu</td>
                   <td>vittapu@gmail.com</td>
                   <td>Fundamental of Electrical Circuit</td>
                   <td><a href="#" class="text-primary">Delete</a></td>
@@ -115,6 +115,6 @@
 
   <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="src\scripts\Dashboard.js"></script>
+  <script type="module" src="src/scripts/Dashboard.js"></script>
 </body>
 </html>

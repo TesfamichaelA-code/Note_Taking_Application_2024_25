@@ -68,7 +68,6 @@ class TutorCardDetail extends StatelessWidget {
       await tutorRequestService.createTutoringRequest(
         tutorId: tutor.id!,
         tutorName: tutor.fullName,
-        studentName: currentUser.displayName ?? 'Anonymous Student',
         studentEmail: currentUser.email ?? 'No email provided',
         message: 'I would like to book a tutoring session for ${tutor.expertise}.',
       );
