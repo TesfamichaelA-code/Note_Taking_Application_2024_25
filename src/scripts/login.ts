@@ -1,92 +1,38 @@
-import '../styles/style.css';
-
-interface FormElements extends HTMLFormControlsCollection {
-  email: HTMLInputElement;
-  password: HTMLInputElement;
-}
-
-interface LoginForm extends HTMLFormElement {
-  readonly elements: FormElements;
-}
+import { auth, LoginCredentials } from './api';
 
 document.addEventListener('DOMContentLoaded', () => {
-  const form = document.getElementById('registerForm') as LoginForm;
+    const loginForm = document.getElementById('registerForm') as HTMLFormElement;
+    const emailInput = document.getElementById('email') as HTMLInputElement;
+    const passwordInput = document.getElementById('password') as HTMLInputElement;
+    const idInput = document.getElementById('identification') as HTMLInputElement;
 
-  const validateEmail = (email: string): boolean => {
-      const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      return re.test(email);
-  };
-  
-  const validatePassword = (password: string): boolean => {
-      return password.length >= 8;
-  };
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
 
-  const validateForm = (e: Event): void => {
-      e.preventDefault();
-      
-      const { email, password } = form.elements;
-      let isValid = true;
-      
-      // Validate Email
-      if (!validateEmail(email.value)) {
-          email.classList.add('is-invalid');
-          showErrorMessage(email, "Please enter a valid email address.");
-          isValid = false;
-      } else {
-          email.classList.remove('is-invalid');
-          email.classList.add('is-valid');
-          hideErrorMessage(email);
-      }
-      
-      // Validate Password
-      if (!validatePassword(password.value)) {
-          password.classList.add('is-invalid');
-          showErrorMessage(password, "Password must be at least 8 characters long.");
-          isValid = false;
-      } else {
-          password.classList.remove('is-invalid');
-          password.classList.add('is-valid');
-          hideErrorMessage(password);
-      }
-      
-      if (isValid) {
-          // Here you would typically send the form data to your server
-          console.log('Form is valid, submitting...', {
-              email: email.value,
-              password: password.value
-          });
-          
-          // Reset form after successful submission
-          form.reset();
-          Array.from(form.elements).forEach((element) => {
-            // Type assertion to HTMLInputElement
-            const inputElement = element as HTMLInputElement;
+        try {
+            const credentials: LoginCredentials = {
+                email: emailInput.value,
+                password: passwordInput.value,
+                identification: idInput.value
+            };
+
+            const response = await auth.login(credentials);
             
-            if (inputElement instanceof HTMLInputElement) {
-              inputElement.classList.remove('is-valid');
+            // Store the token and user data
+            localStorage.setItem('token', response.token);
+            localStorage.setItem('user', JSON.stringify(response.user));
+
+            // Show success message
+            alert('Login successful!');
+
+            // Redirect based on user role (you might want to adjust this based on your backend response)
+            if (response.user.role === 'admin') {
+                window.location.href = '/Dashboard.html';
+            } else {
+                window.location.href = '/courses.html';
             }
-          });
-      } else {
-          // Focus on the first invalid field
-          const firstInvalid = form.querySelector('.is-invalid') as HTMLElement;
-          firstInvalid?.focus();
-      }
-  };
-
-  const showErrorMessage = (input: HTMLInputElement, message: string) => {
-      const errorMessage = input.nextElementSibling as HTMLElement;
-      if (errorMessage) {
-          errorMessage.textContent = message;
-          errorMessage.classList.add('d-block');
-      }
-  };
-
-  const hideErrorMessage = (input: HTMLInputElement) => {
-      const errorMessage = input.nextElementSibling as HTMLElement;
-      if (errorMessage) {
-          errorMessage.classList.remove('d-block');
-      }
-  };
-  
-  form.addEventListener('submit', validateForm);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'Login failed. Please try again.');
+        }
+    });
 });

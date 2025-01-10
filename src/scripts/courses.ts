@@ -1,123 +1,58 @@
-class Course {
-    constructor(
-        public id: string,
-        public title: string,
-        public publishedBy: string,
-        public href: string
-    ) {}
-}
+import { courses, Course } from './api';
 
-class EduWave {
-    private courses: Course[] = [
-        new Course('1', 'Fundamental Of Electrical Circuit', 'Mr. Vittapu', '#electrical-circuit'),
-        new Course('2', 'Fundamental Of Software Engineering', 'Mr. Vittapu', '#software-engineering'),
-        new Course('3', 'Human Computer Interaction', 'Mr. Mittapu', '#human-computer-interaction'),
-        new Course('4', 'Computer Architecture and Organization', 'Mr. Abebe', '#computer-architecture'),
-        new Course('5', 'Website Development', 'Mr. Betsegaw', '#website-development')
-    ];
+document.addEventListener('DOMContentLoaded', async () => {
+    const courseGrid = document.querySelector('.row.g-4');
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
 
-    private createNavbar(): HTMLElement {
-        const navbar = document.createElement('nav');
-        navbar.className = 'navbar navbar-expand-lg navbar-light bg-light py-3';
-        navbar.innerHTML = `
-            <div class="container">
-                <a class="navbar-brand d-flex align-items-center" href="#">
-                    <svg class="logo me-2" viewBox="0 0 100 100" width="40" height="40">
-                        <path d="M20,20 Q50,10 80,20 Q50,30 20,20" fill="none" stroke="black" stroke-width="4"/>
-                        <path d="M20,40 Q50,30 80,40 Q50,50 20,40" fill="none" stroke="black" stroke-width="4"/>
-                        <path d="M20,60 Q50,50 80,60 Q50,70 20,60" fill="none" stroke="black" stroke-width="4"/>
-                    </svg>
-                    EduWave
-                </a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-                    <ul class="navbar-nav">
-                        <li class="nav-item"><a class="nav-link" href="#">Home</a></li>
-                        <li class="nav-item"><a class="nav-link" href="#">Courses</a></li>
-                        <li class="nav-item"><a class="nav-link" href="#">Profile</a></li>
-                    </ul>
-                </div>
-            </div>
-        `;
-        return navbar;
+    // Check if user is logged in
+    if (!localStorage.getItem('token')) {
+        window.location.href = '/login.html';
+        return;
     }
 
-    private createCourseCard(course: Course): HTMLElement {
-        const card = document.createElement('div');
-        card.className = 'col-md-6 col-sm-12 mb-4';
-        card.innerHTML = `
-            <div class="course-card">
-                <a href="${course.href}" class="text-white text-decoration-none">
-                    <h3>${course.title}</h3>
-                </a>
-                <p class="mt-auto text-end mb-0">Published by ${course.publishedBy}</p>
-            </div>
-        `;
-        return card;
+    try {
+        const coursesList = await courses.getAll();
+        
+        if (courseGrid) {
+            courseGrid.innerHTML = ''; // Clear existing courses
+            
+            coursesList.forEach((course: Course) => {
+                const courseElement = document.createElement('div');
+                courseElement.className = 'col-md-6';
+                courseElement.innerHTML = `
+                    <a href="Detail.html?id=${course.id}" class="text-decoration-none">
+                        <div class="card bg-dark text-white h-100">
+                            <div class="card-body d-flex flex-column">
+                                <h5 class="card-title">${course.title}</h5>
+                                <p class="card-text mt-auto text-end">Published by ${course.teacher}</p>
+                            </div>
+                        </div>
+                    </a>
+                `;
+                courseGrid.appendChild(courseElement);
+            });
+        }
+    } catch (error) {
+        alert('Failed to load courses. Please try again later.');
+        console.error('Error loading courses:', error);
     }
 
-    private createCoursesSection(): HTMLElement {
-        const section = document.createElement('div');
-        section.className = 'container py-5';
-        section.innerHTML = `
-            <h1 class="display-4 mb-4">Courses</h1>
-            <p class="lead mb-5">
-                EduWave offers a rich collection of notes and presentations from teachers, covering various subjects
-                like Mathematics, Science, Art, and more. With interactive lessons and resources, it's designed to help
-                students learn, grow, and excel at their own pace.
-            </p>
-        `;
+    // Update navigation based on user role
+    const loginLink = document.querySelector('a[href="login.html"]') as HTMLAnchorElement;
+    const logoutLink = document.querySelector('a[href="index.html"]') as HTMLAnchorElement;
 
-        const courseGrid = document.createElement('div');
-        courseGrid.className = 'row g-4';
-        this.courses.forEach(course => {
-            courseGrid.appendChild(this.createCourseCard(course));
+    if (loginLink && logoutLink) {
+        if (user.role === 'admin') {
+            loginLink.href = 'Dashboard.html';
+            loginLink.textContent = 'Dashboard';
+        }
+
+        // Update logout functionality
+        logoutLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/index.html';
         });
-
-        section.appendChild(courseGrid);
-        return section;
     }
-
-    public render(): void {
-        document.body.className = 'bg-light';
-        document.body.appendChild(this.createNavbar());
-        document.body.appendChild(this.createCoursesSection());
-
-        // Add necessary styles
-        const style = document.createElement('style');
-        style.textContent = `
-            .course-card {
-                background-color: #000;
-                color: white;
-                border-radius: 15px;
-                padding: 20px;
-                height: 100%;
-                transition: transform 0.2s, box-shadow 0.2s;
-            }
-            .course-card:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            }
-            .logo {
-                width: 40px;
-                height: 40px;
-            }
-            .nav-link {
-                color: #000;
-                font-weight: 500;
-            }
-            .nav-link:hover {
-                color: #666;
-            }
-        `;
-        document.head.appendChild(style);
-    }
-}
-
-// Run the application
-window.onload = () => {
-    const app = new EduWave();
-    app.render();
-};
+});
