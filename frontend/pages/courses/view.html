@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Details - Study Notes</title>
+    <link rel="stylesheet" href="../../css/bootstrap.min.css">
+    <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">Study Notes</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/courses/index.html">Courses</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/notes/index.html">Notes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/flashcards/index.html">Flashcards</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/resources/index.html">Resources</a>
+                    </li>
+                </ul>
+                <div class="navbar-nav" id="authNav">
+                    <li class="nav-item">
+                        <button class="btn btn-danger nav-link" id="logoutBtn">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </button>
+                    </li>
+                    <!-- Will be populated by JS -->
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div id="courseDetails">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 id="courseTitle"></h1>
+                <div class="btn-group" id="courseActions">
+                    <button class="btn btn-primary" id="addStudentBtn">Add Student</button>
+                    <button class="btn btn-danger" id="deleteCourseBtn">Delete Course</button>
+                </div>
+            </div>
+            <p id="courseDescription" class="lead mb-4"></p>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Students</h5>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group" id="studentsList">
+                                <!-- Students will be loaded here -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-8">
+                    <ul class="nav nav-tabs mb-4">
+                        <li class="nav-item">
+                            <a class="nav-link active" data-bs-toggle="tab" href="#notes">Notes</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#flashcards">Flashcards</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#resources">Resources</a>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="notes">
+                            <!-- Course notes will be loaded here -->
+                        </div>
+                        <div class="tab-pane fade" id="flashcards">
+                            <!-- Course flashcards will be loaded here -->
+                        </div>
+                        <div class="tab-pane fade" id="resources">
+                            <!-- Course resources will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Student Modal -->
+    <div class="modal fade" id="addStudentModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Student</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="studentEmail" class="form-label">Student Email</label>
+                        <input type="email" class="form-control" id="studentEmail" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="confirmAddStudent">Add Student</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        import { CoursesApi } from '/js/api/courses.js';
+        import { AuthGuard } from '/js/utils/auth-guard.js';
+
+        // Check authentication
+        if (!AuthGuard.checkAuth()) {
+            window.location.href = '/pages/auth/login.html';
+        }
+
+        const courseId = new URLSearchParams(window.location.search).get('id');
+        const user = AuthGuard.getUserInfo();
+        const addStudentModal = new bootstrap.Modal(document.getElementById('addStudentModal'));
+
+        // Show/hide teacher actions based on role
+        const courseActions = document.getElementById('courseActions');
+        courseActions.style.display = ['teacher', 'admin'].includes(user.role) ? 'flex' : 'none';
+
+        async function loadCourseDetails() {
+            try {
+                const course = await CoursesApi.getCourse(courseId);
+                
+                document.getElementById('courseTitle').textContent = course.title;
+                document.getElementById('courseDescription').textContent = course.description || 'No description available';
+                
+                // Load students
+                const studentsList = document.getElementById('studentsList');
+                studentsList.innerHTML = course.students.map(student => `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        ${student.name}
+                        ${['teacher', 'admin'].includes(user.role) ? 
+                            `<button class="btn btn-sm btn-danger remove-student" data-id="${student._id}">Remove</button>` : 
+                            ''}
+                    </li>
+                `).join('');
+
+                // Load course content
+                loadCourseContent(course);
+            } catch (error) {
+                console.error('Failed to load course details:', error);
+            }
+        }
+
+        async function loadCourseContent(course) {
+            // Load notes
+            const notesTab = document.getElementById('notes');
+            notesTab.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3>Course Notes</h3>
+                    <button class="btn btn-primary" onclick="window.location.href='/pages/notes/create.html?courseId=${courseId}'">
+                        Create Note
+                    </button>
+                </div>
+                <div class="card-grid">
+                    ${course.notes ? course.notes.map(note => `
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">${note.title}</h5>
+                                <p class="card-text">${note.content.substring(0, 100)}...</p>
+                                <a href="/pages/notes/view.html?id=${note._id}" class="btn btn-primary">View Note</a>
+                            </div>
+                        </div>
+                    `).join('') : '<p>No notes available</p>'}
+                </div>
+            `;
+
+            // Similar implementations for flashcards and resources tabs
+        }
+
+        // Event Listeners
+        document.getElementById('addStudentBtn').addEventListener('click', () => {
+            addStudentModal.show();
+        });
+
+        document.getElementById('confirmAddStudent').addEventListener('click', async () => {
+            const studentEmail = document.getElementById('studentEmail').value;
+            try {
+                await CoursesApi.addStudent(courseId, studentEmail);
+                addStudentModal.hide();
+                loadCourseDetails();
+            } catch (error) {
+                console.error('Failed to add student:', error);
+            }
+        });
+
+        document.getElementById('deleteCourseBtn').addEventListener('click', async () => {
+            if (confirm('Are you sure you want to delete this course?')) {
+                try {
+                    await CoursesApi.deleteCourse(courseId);
+                    window.location.href = '/pages/courses/index.html';
+                } catch (error) {
+                    console.error('Failed to delete course:', error);
+                }
+            }
+        });
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                try {
+                    await AuthGuard.clearAuth();
+                    window.location.href = '/pages/auth/login.html';
+                } catch (error) {
+                    console.error('Logout failed:', error);
+                    Toast.error('Logout failed. Please try again.');
+                }
+            });
+        }
+        // Initialize page
+        loadCourseDetails();
+    </script>
+</body>
+</html>

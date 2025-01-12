@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashcards - Study Notes</title>
+    <link rel="stylesheet" href="../../css/bootstrap.min.css">
+    <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary"></nav>
+        <div class="container">
+            <a class="navbar-brand" href="/">Study Notes</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/courses/index.html">Courses</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/notes/index.html">Notes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/flashcards/index.html">Flashcards</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/resources/index.html">Resources</a>
+                    </li>
+                </ul>
+                <div class="navbar-nav" id="authNav">
+                    <li class="nav-item">
+                        <button class="btn btn-danger nav-link" id="logoutBtn">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </button>
+                    </li>
+                    <!-- Will be populated by JS -->
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Flashcards</h1>
+            <div class="btn-group">
+                <button class="btn btn-primary" id="createFlashcardBtn">Create Flashcard</button>
+                <button class="btn btn-success" id="studyModeBtn">Study Mode</button>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <select class="form-select" id="courseFilter">
+                    <option value="">All Courses</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <input type="text" class="form-control" id="searchInput" placeholder="Search flashcards...">
+            </div>
+        </div>
+
+        <div class="card-grid" id="flashcardsGrid">
+            <!-- Flashcards will be loaded here -->
+        </div>
+    </div>
+
+    <!-- Create/Edit Flashcard Modal -->
+    <div class="modal fade" id="flashcardModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create Flashcard</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="flashcardForm">
+                        <div class="mb-3">
+                            <label for="question" class="form-label">Question</label>
+                            <textarea class="form-control" id="question" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="answer" class="form-label">Answer</label>
+                            <textarea class="form-control" id="answer" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="courseId" class="form-label">Course</label>
+                            <select class="form-select" id="courseId" required>
+                                <!-- Courses will be loaded here -->
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="tags" class="form-label">Tags (comma-separated)</label>
+                            <input type="text" class="form-control" id="tags">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="saveFlashcardBtn">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        import { FlashcardsApi } from '/js/api/flashcards.js';
+        import { CoursesApi } from '/js/api/courses.js';
+        import { AuthGuard } from '/js/utils/auth-guard.js';
+
+        // Check authentication
+        if (!AuthGuard.checkAuth()) {
+            window.location.href = '/pages/auth/login.html';
+        }
+
+        const flashcardModal = new bootstrap.Modal(document.getElementById('flashcardModal'));
+        let allFlashcards = [];
+        let currentFlashcardId = null;
+
+        async function loadCourses() {
+            try {
+                const courses = await CoursesApi.getAllCourses();
+                const courseOptions = courses.map(course => 
+                    `<option value="${course._id}">${course.title}</option>`
+                ).join('');
+                
+                document.getElementById('courseFilter').innerHTML += courseOptions;
+                document.getElementById('courseId').innerHTML = courseOptions;
+            } catch (error) {
+                console.error('Failed to load courses:', error);
+            }
+        }
+
+        async function loadFlashcards() {
+            try {
+                allFlashcards = await FlashcardsApi.getAllFlashcards();
+                renderFlashcards(allFlashcards);
+            } catch (error) {
+                console.error('Failed to load flashcards:', error);
+            }
+        }
+
+        function renderFlashcards(flashcards) {
+            const flashcardsGrid = document.getElementById('flashcardsGrid');
+            if (flashcards.length === 0) {
+                flashcardsGrid.innerHTML = '<p class="text-center">No flashcards found</p>';
+                return;
+            }
+
+            flashcardsGrid.innerHTML = flashcards.map(flashcard => `
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Question:</h5>
+                        <p class="card-text">${flashcard.question}</p>
+                        <div class="collapse" id="answer-${flashcard._id}">
+                            <h5 class="card-title mt-3">Answer:</h5>
+                            <p class="card-text">${flashcard.answer}</p>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <button class="btn btn-sm btn-primary" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#answer-${flashcard._id}">
+                                Show/Hide Answer
+                            </button>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-primary edit-flashcard" 
+                                        data-id="${flashcard._id}">Edit</button>
+                                <button class="btn btn-sm btn-outline-danger delete-flashcard" 
+                                        data-id="${flashcard._id}">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Add event listeners
+            document.querySelectorAll('.edit-flashcard').forEach(button => {
+                button.addEventListener('click', (e) => editFlashcard(e.target.dataset.id));
+            });
+
+            document.querySelectorAll('.delete-flashcard').forEach(button => {
+                button.addEventListener('click', (e) => deleteFlashcard(e.target.dataset.id));
+            });
+        }
+
+        async function editFlashcard(id) {
+            currentFlashcardId = id;
+            const flashcard = allFlashcards.find(f => f._id === id);
+            
+            document.getElementById('question').value = flashcard.question;
+            document.getElementById('answer').value = flashcard.answer;
+            document.getElementById('courseId').value = flashcard.course;
+            document.getElementById('tags').value = flashcard.tags?.join(', ') || '';
+            
+            document.querySelector('#flashcardModal .modal-title').textContent = 'Edit Flashcard';
+            flashcardModal.show();
+        }
+
+        async function deleteFlashcard(id) {
+            if (confirm('Are you sure you want to delete this flashcard?')) {
+                try {
+                    await FlashcardsApi.deleteFlashcard(id);
+                    loadFlashcards();
+                } catch (error) {
+                    console.error('Failed to delete flashcard:', error);
+                }
+            }
+        }
+
+        // Event Listeners
+        document.getElementById('createFlashcardBtn').addEventListener('click', () => {
+            currentFlashcardId = null;
+            document.getElementById('flashcardForm').reset();
+            document.querySelector('#flashcardModal .modal-title').textContent = 'Create Flashcard';
+            flashcardModal.show();
+        });
+
+        document.getElementById('saveFlashcardBtn').addEventListener('click', async () => {
+            const flashcardData = {
+                question: document.getElementById('question').value,
+                answer: document.getElementById('answer').value,
+                course: document.getElementById('courseId').value,
+                tags: document.getElementById('tags').value.split(',').map(tag => tag.trim()).filter(tag => tag)
+            };
+
+            try {
+                if (currentFlashcardId) {
+                    await FlashcardsApi.updateFlashcard(currentFlashcardId, flashcardData);
+                } else {
+                    await FlashcardsApi.createFlashcard(flashcardData);
+                }
+                flashcardModal.hide();
+                loadFlashcards();
+            } catch (error) {
+                console.error('Failed to save flashcard:', error);
+                alert('Failed to save flashcard. Please try again.');
+            }
+        });
+
+        document.getElementById('studyModeBtn').addEventListener('click', () => {
+            window.location.href = 'study.html';
+        });
+
+        // Filter functionality
+        document.getElementById('courseFilter').addEventListener('change', filterFlashcards);
+        document.getElementById('searchInput').addEventListener('input', filterFlashcards);
+
+        function filterFlashcards() {
+            const courseId = document.getElementById('courseFilter').value;
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+            let filtered = allFlashcards;
+
+            if (courseId) {
+                filtered = filtered.filter(f => f.course === courseId);
+            }
+
+            if (searchTerm) {
+                filtered = filtered.filter(f => 
+                    f.question.toLowerCase().includes(searchTerm) || 
+                    f.answer.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            renderFlashcards(filtered);
+        }
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                try {
+                    await AuthGuard.clearAuth();
+                    window.location.href = '/pages/auth/login.html';
+                } catch (error) {
+                    console.error('Logout failed:', error);
+                    Toast.error('Logout failed. Please try again.');
+                }
+            });
+        }
+        // Initialize page
+        loadCourses();
+        loadFlashcards();
+    </script>
+</body>
+</html>
