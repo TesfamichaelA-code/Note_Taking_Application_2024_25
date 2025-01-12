@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Study Mode - Flashcards</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .flashcard {
+            perspective: 1000px;
+            height: 300px;
+            cursor: pointer;
+        }
+
+        .flashcard-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+        }
+
+        .flashcard.flipped .flashcard-inner {
+            transform: rotateY(180deg);
+        }
+
+        .flashcard-front, .flashcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .flashcard-back {
+            transform: rotateY(180deg);
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary"></nav>
+        <div class="container">
+            <a class="navbar-brand" href="/">Study Notes</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/courses/index.html">Courses</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/notes/index.html">Notes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/flashcards/index.html">Flashcards</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/resources/index.html">Resources</a>
+                    </li>
+                </ul>
+                <div class="navbar-nav" id="authNav">
+                    <li class="nav-item">
+                        <button class="btn btn-danger nav-link" id="logoutBtn">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </button>
+                    </li>
+                    <!-- Will be populated by JS -->
+                </div>
+            </div>
+        </div>
+    </nav>
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Study Mode</h1>
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="window.location.href='index.html'">Exit Study Mode</button>
+                <button class="btn btn-primary" id="shuffleBtn">Shuffle Cards</button>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <select class="form-select" id="courseFilter">
+                    <option value="">All Courses</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div id="studyContainer" class="d-none">
+                    <div class="flashcard mb-4" id="currentCard">
+                        <div class="flashcard-inner">
+                            <div class="card flashcard-front">
+                                <div class="card-body">
+                                    <h5 class="card-title mb-4">Question:</h5>
+                                    <p class="card-text" id="questionText"></p>
+                                </div>
+                            </div>
+                            <div class="card flashcard-back">
+                                <div class="card-body">
+                                    <h5 class="card-title mb-4">Answer:</h5>
+                                    <p class="card-text" id="answerText"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <button class="btn btn-primary" id="prevBtn">Previous</button>
+                        <div class="text-center">
+                            <span id="cardProgress">Card 0 of 0</span>
+                        </div>
+                        <button class="btn btn-primary" id="nextBtn">Next</button>
+                    </div>
+                </div>
+
+                <div id="noCardsMessage" class="text-center">
+                    <p class="lead">No flashcards available for the selected course.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { FlashcardsApi } from '/js/api/flashcards.js';
+        import { CoursesApi } from '/js/api/courses.js';
+        import { AuthGuard } from '/js/utils/auth-guard.js';
+
+        // Check authentication
+        if (!AuthGuard.checkAuth()) {
+            window.location.href = '/pages/auth/login.html';
+        }
+
+        let flashcards = [];
+        let currentIndex = 0;
+
+        async function loadCourses() {
+            try {
+                const courses = await CoursesApi.getAllCourses();
+                document.getElementById('courseFilter').innerHTML += courses.map(course => 
+                    `<option value="${course._id}">${course.title}</option>`
+                ).join('');
+            } catch (error) {
+                console.error('Failed to load courses:', error);
+            }
+        }
+
+        async function loadFlashcards(courseId = '') {
+            try {
+                flashcards = courseId ? 
+                    await FlashcardsApi.getFlashcardsByCourse(courseId) :
+                    await FlashcardsApi.getAllFlashcards();
+                
+                currentIndex = 0;
+                updateDisplay();
+            } catch (error) {
+                console.error('Failed to load flashcards:', error);
+            }
+        }
+
+        function updateDisplay() {
+            const studyContainer = document.getElementById('studyContainer');
+            const noCardsMessage = document.getElementById('noCardsMessage');
+
+            if (flashcards.length === 0) {
+                studyContainer.classList.add('d-none');
+                noCardsMessage.classList.remove('d-none');
+                return;
+            }
+
+            studyContainer.classList.remove('d-none');
+            noCardsMessage.classList.add('d-none');
+
+            const currentCard = flashcards[currentIndex];
+            document.getElementById('questionText').textContent = currentCard.question;
+            document.getElementById('answerText').textContent = currentCard.answer;
+            document.getElementById('cardProgress').textContent = 
+                `Card ${currentIndex + 1} of ${flashcards.length}`;
+
+            // Reset card to front side
+            document.getElementById('currentCard').classList.remove('flipped');
+
+            // Update button states
+            document.getElementById('prevBtn').disabled = currentIndex === 0;
+            document.getElementById('nextBtn').disabled = currentIndex === flashcards.length - 1;
+        }
+
+        function shuffleFlashcards() {
+            for (let i = flashcards.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [flashcards[i], flashcards[j]] = [flashcards[j], flashcards[i]];
+            }
+            currentIndex = 0;
+            updateDisplay();
+        }
+
+        // Event Listeners
+        document.getElementById('courseFilter').addEventListener('change', (e) => {
+            loadFlashcards(e.target.value);
+        });
+
+        document.getElementById('currentCard').addEventListener('click', () => {
+            document.getElementById('currentCard').classList.toggle('flipped');
+        });
+
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            if (currentIndex > 0) {
+                currentIndex--;
+                updateDisplay();
+            }
+        });
+
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            if (currentIndex < flashcards.length - 1) {
+                currentIndex++;
+                updateDisplay();
+            }
+        });
+
+        document.getElementById('shuffleBtn').addEventListener('click', shuffleFlashcards);
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowLeft':
+                    if (currentIndex > 0) {
+                        currentIndex--;
+                        updateDisplay();
+                    }
+                    break;
+                case 'ArrowRight':
+                    if (currentIndex < flashcards.length - 1) {
+                        currentIndex++;
+                        updateDisplay();
+                    }
+                    break;
+                case ' ':
+                    document.getElementById('currentCard').classList.toggle('flipped');
+                    break;
+            }
+        });
+
+        // Initialize page
+        loadCourses();
+        loadFlashcards();
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                try {
+                    await AuthGuard.clearAuth();
+                    window.location.href = '/pages/auth/login.html';
+                } catch (error) {
+                    console.error('Logout failed:', error);
+                    Toast.error('Logout failed. Please try again.');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
