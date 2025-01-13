@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Courses - Study Notes</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">Study Notes</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/courses/index.html">Courses</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/notes/index.html">Notes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/flashcards/index.html">Flashcards</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/resources/index.html">Resources</a>
+                    </li>
+                </ul>
+                <div class="navbar-nav" id="authNav">
+                    <li class="nav-item">
+                        <button class="btn btn-danger nav-link" id="logoutBtn">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </button>
+                    </li>
+                    <!-- Will be populated by JS -->
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Courses</h1>
+            <button id="createCourseBtn" class="btn btn-primary">Create Course</button>
+        </div>
+
+        <div class="card-grid" id="coursesGrid">
+            <!-- Courses will be loaded here -->
+        </div>
+    </div>
+
+    <!-- Create Course Modal -->
+    <div class="modal fade" id="courseModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create Course</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="courseForm">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="saveCourseBtn">Save Course</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        import { CoursesApi } from '/js/api/courses.js';
+        import { AuthGuard } from '/js/utils/auth-guard.js';
+
+        // Check authentication
+        if (!AuthGuard.checkAuth()) {
+            window.location.href = '/pages/auth/login.html';
+        }
+
+        const courseModal = new bootstrap.Modal(document.getElementById('courseModal'));
+        const user = AuthGuard.getUserInfo();
+
+        // Show/hide create button based on role
+        const createCourseBtn = document.getElementById('createCourseBtn');
+        createCourseBtn.style.display = ['teacher', 'admin'].includes(user.role) ? 'block' : 'none';
+
+        async function loadCourses() {
+            try {
+                const courses = await CoursesApi.getAllCourses();
+                const coursesGrid = document.getElementById('coursesGrid');
+                coursesGrid.innerHTML = courses.map(course => `
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">${course.title}</h5>
+                            <p class="card-text">${course.description || 'No description'}</p>
+                            <a href="view.html?id=${course._id}" class="btn btn-primary">View Course</a>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load courses:', error);
+            }
+        }
+
+        // Create course handler
+        document.getElementById('saveCourseBtn').addEventListener('click', async () => {
+            const courseData = {
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value
+            };
+
+            try {
+                await CoursesApi.createCourse(courseData);
+                courseModal.hide();
+                loadCourses();
+            } catch (error) {
+                console.error('Failed to create course:', error);
+            }
+        });
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                try {
+                    await AuthGuard.clearAuth();
+                    window.location.href = '/pages/auth/login.html';
+                } catch (error) {
+                    console.error('Logout failed:', error);
+                    Toast.error('Logout failed. Please try again.');
+                }
+            });
+        }
+
+        // Load courses on page load
+        loadCourses();
+    </script>
+</body>
+</html>

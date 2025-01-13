@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes - Study Notes</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">Study Notes</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/courses/index.html">Courses</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/notes/index.html">Notes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/flashcards/index.html">Flashcards</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/resources/index.html">Resources</a>
+                    </li>
+                </ul>
+                <div class="navbar-nav" id="authNav">
+                    <li class="nav-item">
+                        <button class="btn btn-danger nav-link" id="logoutBtn">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </button>
+                    </li>
+                    <!-- Will be populated by JS -->
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>My Notes</h1>
+            <button class="btn btn-primary" onclick="window.location.href='create.html'">Create Note</button>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <select class="form-select" id="courseFilter">
+                    <option value="">All Courses</option>
+                    <!-- Courses will be loaded here -->
+                </select>
+            </div>
+            <div class="col-md-4">
+                <input type="text" class="form-control" id="searchInput" placeholder="Search notes...">
+            </div>
+        </div>
+
+        <div class="card-grid" id="notesGrid">
+            <!-- Notes will be loaded here -->
+        </div>
+    </div>
+
+    <script type="module">
+        import { NotesApi } from '/js/api/notes.js';
+        import { CoursesApi } from '/js/api/courses.js';
+        import { AuthGuard } from '/js/utils/auth-guard.js';
+
+        // Check authentication
+        if (!AuthGuard.checkAuth()) {
+            window.location.href = '/pages/auth/login.html';
+        }
+
+        let allNotes = [];
+        const searchInput = document.getElementById('searchInput');
+        const courseFilter = document.getElementById('courseFilter');
+
+        async function loadCourses() {
+            try {
+                const courses = await CoursesApi.getAllCourses();
+                courseFilter.innerHTML += courses.map(course => 
+                    `<option value="${course._id}">${course.title}</option>`
+                ).join('');
+            } catch (error) {
+                console.error('Failed to load courses:', error);
+            }
+        }
+
+        async function loadNotes() {
+            try {
+                allNotes = await NotesApi.getAllNotes();
+                renderNotes(allNotes);
+            } catch (error) {
+                console.error('Failed to load notes:', error);
+            }
+        }
+
+        function renderNotes(notes) {
+            const notesGrid = document.getElementById('notesGrid');
+            if (notes.length === 0) {
+                notesGrid.innerHTML = '<p class="text-center">No notes found</p>';
+                return;
+            }
+
+            notesGrid.innerHTML = notes.map(note => `
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">${note.title}</h5>
+                        <p class="card-text">${note.content.substring(0, 150)}...</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                ${note.course ? `Course: ${note.course.title}` : 'No course'}
+                            </small>
+                            <div class="btn-group">
+                                <a href="edit.html?id=${note._id}" class="btn btn-sm btn-outline-primary">Edit</a>
+                                <button class="btn btn-sm btn-outline-danger delete-note" data-id="${note._id}">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Add delete handlers
+            document.querySelectorAll('.delete-note').forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    if (confirm('Are you sure you want to delete this note?')) {
+                        const noteId = e.target.dataset.id;
+                        try {
+                            await NotesApi.deleteNote(noteId);
+                            loadNotes();
+                        } catch (error) {
+                            console.error('Failed to delete note:', error);
+                        }
+                    }
+                });
+            });
+        }
+
+        // Filter and search functionality
+        function filterNotes() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const courseId = courseFilter.value;
+
+            let filteredNotes = allNotes;
+
+            if (courseId) {
+                filteredNotes = filteredNotes.filter(note => note.course?._id === courseId);
+            }
+
+            if (searchTerm) {
+                filteredNotes = filteredNotes.filter(note => 
+                    note.title.toLowerCase().includes(searchTerm) || 
+                    note.content.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            renderNotes(filteredNotes);
+        }
+
+        // Event listeners
+        searchInput.addEventListener('input', filterNotes);
+        courseFilter.addEventListener('change', filterNotes);
+
+        // Initialize page
+        loadCourses();
+        loadNotes();
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                try {
+                    await AuthGuard.clearAuth();
+                    window.location.href = '/pages/auth/login.html';
+                } catch (error) {
+                    console.error('Logout failed:', error);
+                    Toast.error('Logout failed. Please try again.');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

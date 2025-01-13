@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Study Notes App</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">Study Notes</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/courses/index.html">Courses</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/notes/index.html">Notes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/flashcards/index.html">Flashcards</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pages/resources/index.html">Resources</a>
+                    </li>
+                </ul>
+                <div class="navbar-nav" id="authNav">
+                    <li class="nav-item">
+                        <button class="btn btn-danger nav-link" id="logoutBtn">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </button>
+                    </li>
+                    <!-- Will be populated by JS -->
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div id="mainContent">
+            <!-- Main content will be loaded here -->
+            <div class="text-center">
+                <h1>Welcome to Study Notes</h1>
+                <p>Your personal learning management system</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <!-- Toasts will be inserted here -->
+    </div>
+    <script>
+         const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                try {
+                    await AuthGuard.clearAuth();
+                    window.location.href = '/pages/auth/login.html';
+                } catch (error) {
+                    console.error('Logout failed:', error);
+                    Toast.error('Logout failed. Please try again.');
+                }
+            });
+        }
+    </script>
+
+    <script src="/js/utils/auth-guard.js" type="module"></script>
+    <script src="/js/app.js" type="module"></script>
+</body>
+</html>
